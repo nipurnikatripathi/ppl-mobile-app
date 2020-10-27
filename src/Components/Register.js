@@ -1,6 +1,8 @@
 import Axios from 'axios';
-import React, {useState, useEffect} from 'react';
-import SplashScreen from 'react-native-splash-screen';
+import React, {useState, useCallback, useContext} from 'react';
+import useCustomValue from './useLoginForm';
+import {LoginContext} from './LoginContext';
+
 import {
   View,
   Text,
@@ -9,64 +11,110 @@ import {
   ScrollView,
   TextInput,
   Button,
-  Alert,
 } from 'react-native';
 
-const Register = () => {
-  useEffect(() => {
-    SplashScreen.hide();
+const Register = ({navigation}) => {
+  const [isLogin, setIsLogin] = useContext(LoginContext);
+  console.log('islogin inside register.js', isLogin);
+
+  const [email, setEmail, validateEmail, errorEmail] = useCustomValue({
+    intialValue: '',
+    error: 'email is required',
+    regEx: /^\w+[\w-\.]*\@\w+((-\w+)|(\w*))\.[a-z]{2,3}$/,
+    validationError: 'Email is not valid',
   });
 
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [
+    password,
+    setPassword,
+    validatePassword,
+    errorPassword,
+  ] = useCustomValue({
+    intialValue: '',
+    error: 'password is required',
+    regEx: /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,15}$/,
+    validationError:
+      'password should be more than 8 characters have atleast one upercase, lowercase digits and special characters',
+  });
+  const [
+    username,
+    setUserName,
+    validateUserName,
+    errorUserName,
+  ] = useCustomValue({
+    intialValue: '',
+    error: 'username is required',
+  });
+  const [
+    firstName,
+    setFirstName,
+    validateFirstName,
+    errorFirstName,
+  ] = useCustomValue({
+    intialValue: '',
+    error: 'firstname is required',
+  });
+  const [
+    lastName,
+    setLastName,
+    validateLastName,
+    errorLastName,
+  ] = useCustomValue({
+    intialValue: '',
+    error: 'lastname is required',
+  });
 
-   function handleSubmit(event) {
-    event.preventDefault();
-    console.log('inside handle submit');
-    const user = {
-      username,
-      password,
-      email,
-      firstName,
-      lastName,
-    };
-    console.log('user in before api', user);
+  const [
+    formData,
+    setFormData,
+    validateFormData,
+    errorFormData,
+  ] = useCustomValue({
+    error: 'form data is required',
+  });
 
-    const requestOptions = {
-      method: 'GET',
-      headers: {'Content-Type': 'application/json'},
-    //   body: JSON.stringify(user),
-    };
-    console.log('requestOptions', requestOptions);
-    //  fetch(
-    //   `http://localhost:8082/register`,
-    //   {
-    //       method: "GET"
-    //   }
-    // ).then((res) => console.log('hhhhhh'));
-    // console.log('response in timeline singlepostapi', response);
-    // const json = await response.json();
+  const [userRecord, setUserRecord] = useState('');
 
-    // console.log('response in singlepost in timeline.js', json);
-    // return json;
+  const handleSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      console.log('inside handle submit');
 
-    // Axios({
-    //   method: 'post',
-    //   url: 'http://localhost:8082/register',
-    //   data: user,
-    // })
-      Axios
-        .get('http://localhost:8082/register', user)
-      .then((data) => {
-        console.log(data);
-      })
-      .catch((error) => {
-        console.log('Api call error', error);
-      });
-  }
+      const user = {
+        username: username,
+        password: password,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+      };
+      console.log('user in before api', user.username);
+
+      const output =
+        validateFormData(user.username) &&
+        validateFormData(user.firstname) &&
+        validateFormData(user.lastname) &&
+        validateFormData(user.email) &&
+        validateFormData(user.password);
+      console.log('output', output);
+      if (!output) {
+        Axios.post('http://192.168.100.34:9000/register', user)
+          .then((response) => {
+            console.log(response.data);
+            if (response?.data === false) {
+              console.log('user already exists');
+              setUserRecord('user already exists');
+            } else {
+              console.log('user registered successfully!');
+              setUserRecord('user registered successfully!');
+            }
+          })
+          .catch((error) => {
+            console.log('Api call error', error);
+          });
+      }
+    },
+    [username, firstName, lastName, email, password, validateFormData],
+  );
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
@@ -95,48 +143,59 @@ const Register = () => {
         {/* Register form */}
         <View style={styles.registerForm}>
           <Text style={styles.articleTextColor}>Create An Account</Text>
-
           <Text style={styles.formTextColor}>Username</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your username"
-            onChangeText={(username) => setUsername(username)}
-            defaultValue={username}
+            onChangeText={(text) => validateUserName(text)}
           />
+          <Text style={styles.userRecord}>{errorUserName}</Text>
           <Text style={styles.formTextColor}>Email</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your email"
-            onChangeText={(email) => setEmail(email)}
-            defaultValue={email}
+            onChangeText={(text) => validateEmail(text)}
           />
+          <Text style={styles.userRecord}>{errorEmail}</Text>
           <Text style={styles.formTextColor}>Password</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your password"
-            onChangeText={(password) => setPassword(password)}
-            defaultValue={password}
+            onChangeText={(text) => validatePassword(text)}
           />
+          <Text style={styles.userRecord}>{errorPassword}</Text>
           <Text style={styles.formTextColor}>First Name</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your first name"
-            onChangeText={(firstName) => setFirstName(firstName)}
-            defaultValue={firstName}
+            onChangeText={(text) => validateFirstName(text)}
           />
+          <Text style={styles.userRecord}>{errorFirstName}</Text>
           <Text style={styles.formTextColor}>Last Name</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your last name"
-            onChangeText={(lastName) => setLastName(lastName)}
-            defaultValue={lastName}
+            onChangeText={(text) => validateLastName(text)}
           />
+          <Text style={styles.userRecord}>{errorLastName}</Text>
           <Button
             color="#ffa21d"
             width="50"
             title="Submit"
             onPress={handleSubmit}
           />
+          {/* new user or existing user */}
+          <Text style={styles.userRecord}>{errorFormData}</Text>
+          <Text style={styles.userRecord}>{userRecord}</Text>
+          <Text
+            style={styles.link}
+            onPress={() => {
+              setIsLogin(false);
+            //  navigation.navigate('AuthRoute', {screen: 'Login Screen'});
+              navigation.push('Login Screen');
+            }}>
+            Login to account
+          </Text>
         </View>
         {/* footer */}
         <View style={styles.headOfContainer}>
@@ -201,10 +260,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: 30,
   },
+  link: {
+    fontFamily: 'Helvetica',
+    fontSize: 20,
+    color: '#f47b13',
+    paddingTop: 10,
+    fontWeight: 'bold',
+  },
   registerForm: {
     padding: 20,
   },
   submitButton: {
     color: '#5d5959',
+  },
+  userRecord: {
+    color: 'blue',
+    fontWeight: 'bold',
+    fontFamily: 'Helvetica Neue',
   },
 });

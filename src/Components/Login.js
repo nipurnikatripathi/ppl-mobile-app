@@ -1,5 +1,9 @@
-import React, {useState, useEffect} from 'react';
-import SplashScreen from 'react-native-splash-screen';
+import React, {useState, useCallback, useContext} from 'react';
+import Axios from 'axios';
+import useCustomValue from './useLoginForm';
+import AsyncStorage from '@react-native-community/async-storage';
+import {LoginContext} from './LoginContext';
+
 import {
   View,
   Text,
@@ -8,24 +12,109 @@ import {
   ScrollView,
   TextInput,
   Button,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 
-const Login = () => {
-  useEffect(() => {
-    SplashScreen.hide();
+const Login = ({navigation}) => {
+  const [isLogin, setIsLogin] = useContext(LoginContext);
+  console.log('islogin inside login.js', isLogin);
+
+  const [email, setEmail, validateEmail, errorEmail] = useCustomValue({
+    intialValue: '',
+    error: 'email is required',
+    regEx: /^\w+[\w-\.]*\@\w+((-\w+)|(\w*))\.[a-z]{2,3}$/,
+    validationError: 'Email is not valid',
   });
-  const [text, setText] = useState('');
+
+  const [
+    password,
+    setPassword,
+    validatePassword,
+    errorPassword,
+  ] = useCustomValue({
+    intialValue: '',
+    error: 'password is required',
+    regEx: /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])(?!.*\s).{8,15}$/,
+    validationError: 'password is not valid',
+  });
+  const [
+    formData,
+    setFormData,
+    validateFormData,
+    errorFormData,
+  ] = useCustomValue({
+    // intialValue: '',
+    error: 'form data is required',
+  });
+
+  console.log('@@2', email, setEmail, validateEmail, errorEmail);
+  const [userRecord, setUserRecord] = useState('');
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    console.log('inside handle submit');
+    const user = {
+      email: email,
+      password: password,
+    };
+    console.log('user in before api', user);
+    const output =
+      validateFormData(user.email) && validateFormData(user.password);
+    console.log('output', output);
+    if (!output) {
+      Axios.post('http://192.168.100.34:9000/login', user)
+        .then((response) => {
+          if (response?.data?.msg === 'login successfully') {
+            console.log('user logged in successfully!');
+            setUserRecord('user logged in successfully!');
+            AsyncStorage.setItem('username', email);
+            setIsLogin(true);
+            //  navigation.navigate('MainRoute', {screen: 'Login Screen'});
+            navigation.navigate('Pagination Screen');
+          } else if (response?.data?.msg === 'invalid password!') {
+            console.log('invalid password!');
+            setUserRecord('invalid password');
+          } else {
+            console.log('invalid email!');
+            setUserRecord('invalid email!');
+          }
+        })
+        .catch((error) => {
+          console.log('Api call error', error);
+        });
+    }
+  }
+
+  const displayData = useCallback(async () => {
+    console.log('inside display data function');
+    try {
+      let user = await AsyncStorage.getItem('username');
+      console.log('username display data', user);
+      Alert.alert('username display data', user);
+    } catch (error) {
+      console.log('error', error);
+    }
+  }, []);
+
+  const clearData = useCallback(async () => {
+    console.log('inside clear data function');
+    try {
+      await AsyncStorage.clear();
+      Alert.alert('storage cleared!');
+    } catch (error) {
+      console.log('error', error);
+      Alert.alert(error);
+    }
+  }, []);
 
   return (
-    // <SafeAreaView>
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.headOfContainer}>
           <Text style={styles.textColor}>PPL</Text>
-          <Image
-            source={require('../../assets/images/pic_small.png')}
-          />
+          <Image source={require('../../assets/images/pic_small.png')} />
         </View>
         {/* LeftSection article */}
         <View style={styles.article}>
@@ -47,27 +136,46 @@ const Login = () => {
         {/* Log in form */}
         <View style={styles.registerForm}>
           <Text style={styles.articleTextColor}>Log In</Text>
-
           <Text style={styles.formTextColor}>Email-ID</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your email"
-            onChangeText={(text) => setText(text)}
-            defaultValue={text}
+            onChangeText={(text) => validateEmail(text)}
           />
+          <Text style={styles.userRecord}>{errorEmail}</Text>
           <Text style={styles.formTextColor}>Password</Text>
           <TextInput
             style={styles.textInputStyle}
             placeholder="Enter your password"
-            onChangeText={(text) => setText(text)}
-            defaultValue={text}
+            onChangeText={(text) => validatePassword(text)}
           />
+          <Text style={styles.userRecord}>{errorPassword}</Text>
           <Button
             color="#ffa21d"
             width="50"
             title="Submit"
-            //onPress={() => Alert.alert('Button with adjusted color pressed')}
+            onPress={handleSubmit}
           />
+          <Text style={styles.userRecord}>{errorFormData}</Text>
+
+          <Text style={styles.userRecord}>{userRecord}</Text>
+
+          <TouchableOpacity onPress={displayData}>
+            <Text>Click to display data</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={clearData}>
+            <Text>Click to clear data</Text>
+          </TouchableOpacity>
+          <Text
+            style={styles.link}
+            onPress={() => {
+              setIsLogin(false);
+              // navigation.navigate('AuthRoute', {screen: 'Register Screen'});
+
+              navigation.navigate('Register Screen');
+            }}>
+            Create Account
+          </Text>
         </View>
         {/* footer */}
         <View style={styles.headOfContainer}>
@@ -132,10 +240,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: 30,
   },
+  link: {
+    fontFamily: 'Helvetica',
+    fontSize: 20,
+    color: '#f47b13',
+    paddingTop: 10,
+    fontWeight: 'bold',
+  },
   registerForm: {
     padding: 20,
   },
   submitButton: {
     color: '#5d5959',
+  },
+  userRecord: {
+    color: 'blue',
+    fontWeight: 'bold',
+    fontFamily: 'Helvetica Neue',
   },
 });
